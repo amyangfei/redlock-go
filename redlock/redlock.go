@@ -80,7 +80,7 @@ func unlockInstance(cli *redis.Client, resource string, val string) {
 	cli.Cmd("eval", UnlockScript, 1, resource, val)
 }
 
-func (self *RedLock) Lock(resource string, ttl int) error {
+func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < self.retry_count; i++ {
 		success := 0
@@ -98,7 +98,7 @@ func (self *RedLock) Lock(resource string, ttl int) error {
 			self.resource = resource
 			self.val = val
 			self.expiry = validity_time
-			return nil
+			return validity_time, nil
 		} else {
 			for _, cli := range self.servers {
 				unlockInstance(cli, resource, val)
@@ -108,7 +108,7 @@ func (self *RedLock) Lock(resource string, ttl int) error {
 		time.Sleep(time.Duration(rand.Intn(self.retry_delay)) * time.Millisecond)
 	}
 
-	return errors.New("failed to require lock")
+	return 0, errors.New("failed to require lock")
 }
 
 func (self *RedLock) UnLock() error {

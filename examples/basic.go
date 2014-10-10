@@ -16,11 +16,11 @@ func main() {
 		panic(err)
 	}
 
-	err = lock.Lock("foo", 200)
+	expiry, err := lock.Lock("foo", 200)
 	if err != nil {
 		panic(err)
 	}
 	defer lock.UnLock()
 
-	fmt.Println("got lock")
+	fmt.Printf("got lock, with expiry %d ms\n", expiry)
 }
