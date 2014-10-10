@@ -1,0 +1,8 @@
+log
+.DS_Store
+tags
+.*.swp
+
+# Cgo
+*.cgo*
+*.so
