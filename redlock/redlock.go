@@ -1,11 +1,11 @@
 package redlock
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"errors"
 	"github.com/fzzy/radix/redis"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 )
@@ -63,10 +63,8 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 }
 
 func getRandStr() string {
-	f, _ := os.OpenFile("/dev/urandom", os.O_RDONLY, 0)
 	b := make([]byte, 16)
-	f.Read(b)
-	f.Close()
+	crand.Read(b)
 	return base64.StdEncoding.EncodeToString(b)
 }
 
