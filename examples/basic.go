@@ -18,9 +18,9 @@ func main() {
 
 	expiry, err := lock.Lock("foo", 200)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+	} else {
+		fmt.Printf("got lock, with expiry %d ms\n", expiry)
 	}
 	defer lock.UnLock()
-
-	fmt.Printf("got lock, with expiry %d ms\n", expiry)
 }

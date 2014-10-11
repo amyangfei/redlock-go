@@ -69,6 +69,9 @@ func getRandStr() string {
 }
 
 func lockInstance(cli *redis.Client, resource string, val string, ttl int) bool {
+	if cli == nil {
+		return false
+	}
 	reply := cli.Cmd("set", resource, val, "nx", "px", ttl)
 	if reply.Err != nil || reply.String() != "OK" {
 		return false
@@ -77,7 +80,9 @@ func lockInstance(cli *redis.Client, resource string, val string, ttl int) bool 
 }
 
 func unlockInstance(cli *redis.Client, resource string, val string) {
-	cli.Cmd("eval", UnlockScript, 1, resource, val)
+	if cli != nil {
+		cli.Cmd("eval", UnlockScript, 1, resource, val)
+	}
 }
 
 func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
