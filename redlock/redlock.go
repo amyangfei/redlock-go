@@ -28,7 +28,7 @@ type RedLock struct {
 	retry_delay  int
 	drift_factor float64
 
-	servers []*redis.Client
+	clients []*RedClient
 	quorum  int
 
 	resource string
@@ -36,12 +36,17 @@ type RedLock struct {
 	expiry   int64
 }
 
+type RedClient struct {
+	addr string
+	cli  *redis.Client
+}
+
 func NewRedLock(addrs []string) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
 		panic("redlock: error redis server list")
 	}
 
-	servers := []*redis.Client{}
+	clients := []*RedClient{}
 	for _, addr := range addrs {
 		srv := strings.Split(addr, "://")
 		proto := "tcp"
@@ -49,8 +54,8 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 			proto = srv[0]
 		}
 		_addr := srv[len(srv)-1]
-		server, _ := redis.Dial(proto, _addr)
-		servers = append(servers, server)
+		cli, _ := redis.Dial(proto, _addr)
+		clients = append(clients, &RedClient{addr, cli})
 	}
 
 	return &RedLock{
@@ -58,7 +63,7 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 		retry_delay:  DefaultRetryDelay,
 		drift_factor: ClockDriftFactor,
 		quorum:       len(addrs)/2 + 1,
-		servers:      servers,
+		clients:      clients,
 	}, nil
 }
 
@@ -68,20 +73,20 @@ func getRandStr() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func lockInstance(cli *redis.Client, resource string, val string, ttl int) bool {
-	if cli == nil {
+func lockInstance(client *RedClient, resource string, val string, ttl int) bool {
+	if client.cli == nil {
 		return false
 	}
-	reply := cli.Cmd("set", resource, val, "nx", "px", ttl)
+	reply := client.cli.Cmd("set", resource, val, "nx", "px", ttl)
 	if reply.Err != nil || reply.String() != "OK" {
 		return false
 	}
 	return true
 }
 
-func unlockInstance(cli *redis.Client, resource string, val string) {
-	if cli != nil {
-		cli.Cmd("eval", UnlockScript, 1, resource, val)
+func unlockInstance(client *RedClient, resource string, val string) {
+	if client.cli != nil {
+		client.cli.Cmd("eval", UnlockScript, 1, resource, val)
 	}
 }
 
@@ -90,7 +95,7 @@ func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 	for i := 0; i < self.retry_count; i++ {
 		success := 0
 		start := time.Now().Unix()
-		for _, cli := range self.servers {
+		for _, cli := range self.clients {
 			ret := lockInstance(cli, resource, val, ttl)
 			if ret {
 				success += 1
@@ -105,7 +110,7 @@ func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 			self.expiry = validity_time
 			return validity_time, nil
 		} else {
-			for _, cli := range self.servers {
+			for _, cli := range self.clients {
 				unlockInstance(cli, resource, val)
 			}
 		}
@@ -120,7 +125,7 @@ func (self *RedLock) UnLock() error {
 	resource, val := self.resource, self.val
 	self.resource = ""
 	self.val = ""
-	for _, cli := range self.servers {
+	for _, cli := range self.clients {
 		unlockInstance(cli, resource, val)
 	}
 	return nil
