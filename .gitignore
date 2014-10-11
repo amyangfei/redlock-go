@@ -2,6 +2,7 @@ log
 .DS_Store
 tags
 .*.swp
+*.log
 
 # Cgo
 *.cgo*
