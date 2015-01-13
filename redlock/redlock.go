@@ -94,7 +94,7 @@ func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < self.retry_count; i++ {
 		success := 0
-		start := time.Now().Unix()
+		start := time.Now().UnixNano()
 		for _, cli := range self.clients {
 			ret := lockInstance(cli, resource, val, ttl)
 			if ret {
@@ -103,7 +103,8 @@ func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 		}
 
 		drift := int(float64(ttl)*self.drift_factor) + 2
-		validity_time := int64(ttl) - (time.Now().Unix() - start) - int64(drift)
+		cost_time := (time.Now().UnixNano() - start) / 1e6
+		validity_time := int64(ttl) - cost_time - int64(drift)
 		if success >= self.quorum && validity_time > 0 {
 			self.resource = resource
 			self.val = val
