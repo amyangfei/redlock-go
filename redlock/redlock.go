@@ -67,6 +67,20 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 	}, nil
 }
 
+func (self *RedLock) SetRetryCount(count int) {
+	if count <= 0 {
+		return
+	}
+	self.retry_count = count
+}
+
+func (self *RedLock) SetRetryDelay(delay int) {
+	if delay <= 0 {
+		return
+	}
+	self.retry_delay = delay
+}
+
 func getRandStr() string {
 	b := make([]byte, 16)
 	crand.Read(b)
