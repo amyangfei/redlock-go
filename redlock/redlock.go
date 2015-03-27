@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	DefaultRetryCount = 3
+	DefaultRetryCount = 10
 	DefaultRetryDelay = 200 // in Millisecond
 	ClockDriftFactor  = 0.01
 	UnlockScript      = `
