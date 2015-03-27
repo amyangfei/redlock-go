@@ -73,31 +73,38 @@ func getRandStr() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func lockInstance(client *RedClient, resource string, val string, ttl int) bool {
+func lockInstance(client *RedClient, resource string, val string, ttl int, c chan bool) {
 	if client.cli == nil {
-		return false
+		c <- false
+		return
 	}
 	reply := client.cli.Cmd("set", resource, val, "nx", "px", ttl)
 	if reply.Err != nil || reply.String() != "OK" {
-		return false
+		c <- false
+		return
 	}
-	return true
+	c <- true
 }
 
-func unlockInstance(client *RedClient, resource string, val string) {
+func unlockInstance(client *RedClient, resource string, val string, c chan bool) {
 	if client.cli != nil {
 		client.cli.Cmd("eval", UnlockScript, 1, resource, val)
 	}
+	c <- true
 }
 
 func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < self.retry_count; i++ {
+		c := make(chan bool, len(self.clients))
 		success := 0
 		start := time.Now().UnixNano()
+
 		for _, cli := range self.clients {
-			ret := lockInstance(cli, resource, val, ttl)
-			if ret {
+			go lockInstance(cli, resource, val, ttl, c)
+		}
+		for j := 0; j < len(self.clients); j++ {
+			if <-c {
 				success += 1
 			}
 		}
@@ -111,8 +118,12 @@ func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
 			self.expiry = validity_time
 			return validity_time, nil
 		} else {
+			cul := make(chan bool, len(self.clients))
 			for _, cli := range self.clients {
-				unlockInstance(cli, resource, val)
+				go unlockInstance(cli, resource, val, cul)
+			}
+			for j := 0; j < len(self.clients); j++ {
+				<-cul
 			}
 		}
 		// Wait a random delay before to retry
@@ -126,8 +137,12 @@ func (self *RedLock) UnLock() error {
 	resource, val := self.resource, self.val
 	self.resource = ""
 	self.val = ""
+	c := make(chan bool, len(self.clients))
 	for _, cli := range self.clients {
-		unlockInstance(cli, resource, val)
+		go unlockInstance(cli, resource, val, c)
+	}
+	for i := 0; i < len(self.clients); i++ {
+		<-c
 	}
 	return nil
 }
