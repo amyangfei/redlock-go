@@ -10,7 +10,7 @@ This Golang lib implements the Redis-based distributed lock manager algorithm [d
 
 To create a lock manager:
 
-    lock_mgr, err := redlock.NewRedLock([]string{
+    lockMgr, err := redlock.NewRedLock([]string{
             "tcp://127.0.0.1:6379",
             "tcp://127.0.0.1:6380",
             "tcp://127.0.0.1:6381",
@@ -18,7 +18,7 @@ To create a lock manager:
 
 To acquire a lock:
 
-    expirity, err := lock_mgr.Lock("resource_name", 200)
+    expirity, err := lockMgr.Lock("resource_name", 200)
 
 Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
 
@@ -27,5 +27,6 @@ otherwise an expirity lager than zero is returned representing the number of mil
 
 To release a lock:
 
-    err := lock_mgr.UnLock()
+    err := lockMgr.UnLock()
 
+You can find sample code in [_examples](./_examples) dir.
