@@ -48,7 +48,6 @@ func writer(count int, back chan int) {
 				f, err := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE, os.ModePerm)
 				if err != nil {
 					panic(err)
-					f.Close()
 				}
 				buf := make([]byte, 1024)
 				n, _ := f.Read(buf)

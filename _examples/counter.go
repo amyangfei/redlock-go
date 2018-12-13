@@ -1,11 +1,12 @@
 package main
 
 import (
-	"../redlock"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/amyangfei/redlock"
 )
 
 const (

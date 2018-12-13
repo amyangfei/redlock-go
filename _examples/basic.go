@@ -1,8 +1,9 @@
 package main
 
 import (
-	"../redlock"
 	"fmt"
+
+	"github.com/amyangfei/redlock"
 )
 
 func main() {
