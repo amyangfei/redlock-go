@@ -2,7 +2,6 @@ language: go
 
 go:
     - "1.11"
-    - "master"
 
 before_script:
     - mkdir -p /tmp/redis6379 /tmp/redis6380 /tmp/redis6381
