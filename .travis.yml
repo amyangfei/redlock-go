@@ -1,0 +1,18 @@
+language: go
+
+go:
+    - "1.11"
+    - "master"
+
+before_script:
+    - mkdir -p /tmp/redis6379 /tmp/redis6380 /tmp/redis6381
+    - cd /tmp/redis6379
+    - redis-server --port 6379 &
+    - cd /tmp/redis6380
+    - redis-server --port 6380 &
+    - cd /tmp/redis6381
+    - redis-server --port 6381 &
+    - cd ${TRAVIS_BUILD_DIR}
+
+script:
+    - ./test.sh

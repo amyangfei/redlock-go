@@ -1,5 +1,7 @@
 ## RedLock-go
 
+[![Build Status](https://travis-ci.org/amyangfei/redlock-go.svg?branch=master)](https://travis-ci.org/amyangfei/redlock-go)
+
 Redis distributed locks in Golang
 
 This Golang lib implements the Redis-based distributed lock manager algorithm [described in this blog post](http://antirez.com/news/77).
