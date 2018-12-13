@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-var redis_srvs = []string{
+var redisServers = []string{
 	"tcp://127.0.0.1:6379",
 	"tcp://127.0.0.1:6380",
 	"tcp://127.0.0.1:6381",
 }
 
 func TestBasicLock(t *testing.T) {
-	lock, err := NewRedLock(redis_srvs)
+	lock, err := NewRedLock(redisServers)
 
 	if err != nil {
 		t.Errorf("failed to init lock %v", err)
@@ -32,7 +32,7 @@ const (
 )
 
 func writer(count int, back chan int) {
-	lock, err := NewRedLock(redis_srvs)
+	lock, err := NewRedLock(redisServers)
 
 	if err != nil {
 		panic(err)
@@ -53,7 +53,7 @@ func writer(count int, back chan int) {
 				n, _ := f.Read(buf)
 				num, _ := strconv.ParseInt(strings.TrimRight(string(buf[:n]), "\n"), 10, 64)
 				f.WriteAt([]byte(strconv.Itoa(int(num+1))), 0)
-				incr += 1
+				incr++
 
 				f.Sync()
 				f.Close()

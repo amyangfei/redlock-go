@@ -11,10 +11,17 @@ import (
 )
 
 const (
+	// DefaultRetryCount is the max retry times for lock acquire
 	DefaultRetryCount = 10
-	DefaultRetryDelay = 200 // in Millisecond
-	ClockDriftFactor  = 0.01
-	UnlockScript      = `
+
+	// DefaultRetryDelay is upper wait time in millisecond for lock acquire retry
+	DefaultRetryDelay = 200
+
+	// ClockDriftFactor is clock drift factor, more information refers to doc
+	ClockDriftFactor = 0.01
+
+	// UnlockScript is redis lua script to release a lock
+	UnlockScript = `
         if redis.call("get", KEYS[1]) == ARGV[1] then
             return redis.call("del", KEYS[1])
         else
@@ -23,10 +30,11 @@ const (
         `
 )
 
+// RedLock holds the redis lock
 type RedLock struct {
-	retry_count  int
-	retry_delay  int
-	drift_factor float64
+	retryCount  int
+	retryDelay  int
+	driftFactor float64
 
 	clients []*RedClient
 	quorum  int
@@ -36,11 +44,13 @@ type RedLock struct {
 	expiry   int64
 }
 
+// RedClient holds client to redis
 type RedClient struct {
 	addr string
 	cli  *redis.Client
 }
 
+// NewRedLock creates a RedLock
 func NewRedLock(addrs []string) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
 		panic("redlock: error redis server list")
@@ -59,26 +69,28 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 	}
 
 	return &RedLock{
-		retry_count:  DefaultRetryCount,
-		retry_delay:  DefaultRetryDelay,
-		drift_factor: ClockDriftFactor,
-		quorum:       len(addrs)/2 + 1,
-		clients:      clients,
+		retryCount:  DefaultRetryCount,
+		retryDelay:  DefaultRetryDelay,
+		driftFactor: ClockDriftFactor,
+		quorum:      len(addrs)/2 + 1,
+		clients:     clients,
 	}, nil
 }
 
-func (self *RedLock) SetRetryCount(count int) {
+// SetRetryCount sets acquire lock retry count
+func (r *RedLock) SetRetryCount(count int) {
 	if count <= 0 {
 		return
 	}
-	self.retry_count = count
+	r.retryCount = count
 }
 
-func (self *RedLock) SetRetryDelay(delay int) {
+// SetRetryDelay sets acquire lock retry max internal in millisecond
+func (r *RedLock) SetRetryDelay(delay int) {
 	if delay <= 0 {
 		return
 	}
-	self.retry_delay = delay
+	r.retryDelay = delay
 }
 
 func getRandStr() string {
@@ -107,55 +119,56 @@ func unlockInstance(client *RedClient, resource string, val string, c chan bool)
 	c <- true
 }
 
-func (self *RedLock) Lock(resource string, ttl int) (int64, error) {
+// Lock acquires a distribute lock
+func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 	val := getRandStr()
-	for i := 0; i < self.retry_count; i++ {
-		c := make(chan bool, len(self.clients))
+	for i := 0; i < r.retryCount; i++ {
+		c := make(chan bool, len(r.clients))
 		success := 0
 		start := time.Now().UnixNano()
 
-		for _, cli := range self.clients {
+		for _, cli := range r.clients {
 			go lockInstance(cli, resource, val, ttl, c)
 		}
-		for j := 0; j < len(self.clients); j++ {
+		for j := 0; j < len(r.clients); j++ {
 			if <-c {
-				success += 1
+				success++
 			}
 		}
 
-		drift := int(float64(ttl)*self.drift_factor) + 2
-		cost_time := (time.Now().UnixNano() - start) / 1e6
-		validity_time := int64(ttl) - cost_time - int64(drift)
-		if success >= self.quorum && validity_time > 0 {
-			self.resource = resource
-			self.val = val
-			self.expiry = validity_time
-			return validity_time, nil
-		} else {
-			cul := make(chan bool, len(self.clients))
-			for _, cli := range self.clients {
-				go unlockInstance(cli, resource, val, cul)
-			}
-			for j := 0; j < len(self.clients); j++ {
-				<-cul
-			}
+		drift := int(float64(ttl)*r.driftFactor) + 2
+		costTime := (time.Now().UnixNano() - start) / 1e6
+		validityTime := int64(ttl) - costTime - int64(drift)
+		if success >= r.quorum && validityTime > 0 {
+			r.resource = resource
+			r.val = val
+			r.expiry = validityTime
+			return validityTime, nil
+		}
+		cul := make(chan bool, len(r.clients))
+		for _, cli := range r.clients {
+			go unlockInstance(cli, resource, val, cul)
+		}
+		for j := 0; j < len(r.clients); j++ {
+			<-cul
 		}
 		// Wait a random delay before to retry
-		time.Sleep(time.Duration(rand.Intn(self.retry_delay)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(r.retryDelay)) * time.Millisecond)
 	}
 
 	return 0, errors.New("failed to require lock")
 }
 
-func (self *RedLock) UnLock() error {
-	resource, val := self.resource, self.val
-	self.resource = ""
-	self.val = ""
-	c := make(chan bool, len(self.clients))
-	for _, cli := range self.clients {
+// UnLock releases an acquired lock
+func (r *RedLock) UnLock() error {
+	resource, val := r.resource, r.val
+	r.resource = ""
+	r.val = ""
+	c := make(chan bool, len(r.clients))
+	for _, cli := range r.clients {
 		go unlockInstance(cli, resource, val, c)
 	}
-	for i := 0; i < len(self.clients); i++ {
+	for i := 0; i < len(r.clients); i++ {
 		<-c
 	}
 	return nil
