@@ -4,10 +4,12 @@ import (
 	crand "crypto/rand"
 	"encoding/base64"
 	"math/rand"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/fzzy/radix/redis"
+	"github.com/go-redis/redis"
 	"github.com/juju/errors"
 )
 
@@ -51,6 +53,59 @@ type RedClient struct {
 	cli  *redis.Client
 }
 
+func parseConnString(addr string) (*redis.Options, error) {
+	u, err := url.Parse(addr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	opts := &redis.Options{
+		Network: u.Scheme,
+		Addr:    u.Host,
+	}
+
+	dbStr := strings.Trim(u.Path, "/")
+	if dbStr == "" {
+		dbStr = "0"
+	}
+	db, err := strconv.Atoi(dbStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	opts.DB = db
+
+	password, ok := u.User.Password()
+	if ok {
+		opts.Password = password
+	}
+
+	for k, v := range u.Query() {
+		if k == "DialTimeout" {
+			timeout, err := strconv.Atoi(v[0])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			opts.DialTimeout = time.Duration(timeout)
+		}
+		if k == "ReadTimeout" {
+			timeout, err := strconv.Atoi(v[0])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			opts.ReadTimeout = time.Duration(timeout)
+		}
+		if k == "WriteTimeout" {
+			timeout, err := strconv.Atoi(v[0])
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			opts.WriteTimeout = time.Duration(timeout)
+		}
+	}
+
+	return opts, nil
+}
+
 // NewRedLock creates a RedLock
 func NewRedLock(addrs []string) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
@@ -59,13 +114,11 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 
 	clients := []*RedClient{}
 	for _, addr := range addrs {
-		srv := strings.Split(addr, "://")
-		proto := "tcp"
-		if len(srv) > 1 {
-			proto = srv[0]
+		opts, err := parseConnString(addr)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		_addr := srv[len(srv)-1]
-		cli, _ := redis.Dial(proto, _addr)
+		cli := redis.NewClient(opts)
 		clients = append(clients, &RedClient{addr, cli})
 	}
 
@@ -105,8 +158,8 @@ func lockInstance(client *RedClient, resource string, val string, ttl int, c cha
 		c <- false
 		return
 	}
-	reply := client.cli.Cmd("set", resource, val, "nx", "px", ttl)
-	if reply.Err != nil || reply.String() != "OK" {
+	reply := client.cli.SetNX(resource, val, time.Duration(ttl)*time.Millisecond)
+	if reply.Err() != nil || !reply.Val() {
 		c <- false
 		return
 	}
@@ -115,7 +168,7 @@ func lockInstance(client *RedClient, resource string, val string, ttl int, c cha
 
 func unlockInstance(client *RedClient, resource string, val string, c chan bool) {
 	if client.cli != nil {
-		client.cli.Cmd("eval", UnlockScript, 1, resource, val)
+		client.cli.Eval(UnlockScript, []string{resource}, val)
 	}
 	c <- true
 }
