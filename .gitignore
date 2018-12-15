@@ -7,3 +7,5 @@ tags
 # Cgo
 *.cgo*
 *.so
+
+vendor

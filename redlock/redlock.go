@@ -3,11 +3,12 @@ package redlock
 import (
 	crand "crypto/rand"
 	"encoding/base64"
-	"errors"
-	"github.com/fzzy/radix/redis"
 	"math/rand"
 	"strings"
 	"time"
+
+	"github.com/fzzy/radix/redis"
+	"github.com/juju/errors"
 )
 
 const (
@@ -53,7 +54,7 @@ type RedClient struct {
 // NewRedLock creates a RedLock
 func NewRedLock(addrs []string) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
-		panic("redlock: error redis server list")
+		return nil, errors.Errorf("error redis server list: %d", len(addrs))
 	}
 
 	clients := []*RedClient{}
