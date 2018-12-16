@@ -1,11 +1,14 @@
 package redlock
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/juju/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 var redisServers = []string{
@@ -17,38 +20,42 @@ var redisServers = []string{
 func TestBasicLock(t *testing.T) {
 	lock, err := NewRedLock(redisServers)
 
-	if err != nil {
-		t.Errorf("failed to init lock %v", err)
-	}
+	assert.Nil(t, err)
 
-	if _, err := lock.Lock("foo", 200); err != nil {
-		t.Errorf("failed to get lock %v", err)
-	}
-	defer lock.UnLock()
+	_, err = lock.Lock("foo", 200)
+	assert.Nil(t, err)
+	lock.UnLock()
 }
 
 const (
 	fpath = "./counter.log"
 )
 
-func writer(count int, back chan int) {
+func writer(count int, back chan *countResp) {
 	lock, err := NewRedLock(redisServers)
 
 	if err != nil {
-		panic(err)
+		back <- &countResp{
+			err: errors.Trace(err),
+		}
+		return
 	}
 
 	incr := 0
 	for i := 0; i < count; i++ {
 		expiry, err := lock.Lock("foo", 1000)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		} else {
 			if expiry > 500 {
 				f, err := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE, os.ModePerm)
 				if err != nil {
-					panic(err)
+					back <- &countResp{
+						err: errors.Trace(err),
+					}
+					return
 				}
+
 				buf := make([]byte, 1024)
 				n, _ := f.Read(buf)
 				num, _ := strconv.ParseInt(strings.TrimRight(string(buf[:n]), "\n"), 10, 64)
@@ -62,7 +69,10 @@ func writer(count int, back chan int) {
 			}
 		}
 	}
-	back <- incr
+	back <- &countResp{
+		count: incr,
+		err:   nil,
+	}
 }
 
 func init() {
@@ -74,29 +84,30 @@ func init() {
 	defer f.Close()
 }
 
+type countResp struct {
+	count int
+	err   error
+}
+
 func TestSimpleCounter(t *testing.T) {
 	routines := 5
 	inc := 100
 	total := 0
-	done := make(chan int, routines)
+	done := make(chan *countResp, routines)
 	for i := 0; i < routines; i++ {
 		go writer(inc, done)
 	}
 	for i := 0; i < routines; i++ {
-		singleIncr := <-done
-		total += singleIncr
+		resp := <-done
+		assert.Nil(t, resp.err)
+		total += resp.count
 	}
 
 	f, err := os.OpenFile(fpath, os.O_RDONLY, os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
+	assert.Nil(t, err)
 	defer f.Close()
 	buf := make([]byte, 1024)
 	n, _ := f.Read(buf)
-	fmt.Printf("Counter value is %s\n", buf[:n])
 	counterInFile, _ := strconv.Atoi(string(buf[:n]))
-	if total != counterInFile {
-		t.Errorf("counter error: increase %d times, but counterInFile is %d", total, counterInFile)
-	}
+	assert.Equal(t, total, counterInFile)
 }
