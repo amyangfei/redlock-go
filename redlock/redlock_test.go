@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-redis/redis"
 	"github.com/juju/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -110,4 +111,29 @@ func TestSimpleCounter(t *testing.T) {
 	n, _ := f.Read(buf)
 	counterInFile, _ := strconv.Atoi(string(buf[:n]))
 	assert.Equal(t, total, counterInFile)
+}
+
+func TestParseConnString(t *testing.T) {
+	testCases := []struct {
+		addr    string
+		success bool
+		opts    *redis.Options
+	}{
+		{"127.0.0.1", false, nil},
+		{"127.0.0.1:6379", false, nil}, // must provide scheme
+		{"tcp://127.0.0.1:6379", true, &redis.Options{Addr: "127.0.0.1:6379"}},
+		{"tcp://:password@127.0.0.1:6379/2?DialTimeout=1&ReadTimeout=2&WriteTimeout=2",
+			true, &redis.Options{
+				Addr: "127.0.0.1:6379", Password: "password", DB: 2,
+				DialTimeout: 1, ReadTimeout: 2, WriteTimeout: 2}},
+	}
+	for _, tc := range testCases {
+		opts, err := parseConnString(tc.addr)
+		if tc.success {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
+			assert.Exactly(t, tc.opts, opts)
+		}
+	}
 }
