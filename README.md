@@ -1,6 +1,8 @@
 ## RedLock-go
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/amyangfei/redlock-go)](https://goreportcard.com/report/github.com/amyangfei/redlock-go)
 [![Build Status](https://travis-ci.org/amyangfei/redlock-go.svg?branch=master)](https://travis-ci.org/amyangfei/redlock-go)
+[![Coverage Status](https://coveralls.io/repos/github/amyangfei/redlock-go/badge.svg?branch=master)](https://coveralls.io/github/amyangfei/redlock-go?branch=master)
 
 Redis distributed locks in Golang
 
