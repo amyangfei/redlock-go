@@ -1,7 +1,10 @@
 language: go
 
 go:
-    - "1.11"
+    - "1.11.x"
+
+before_install:
+    - go get github.com/mattn/goveralls
 
 before_script:
     - mkdir -p /tmp/redis6379 /tmp/redis6380 /tmp/redis6381
@@ -15,3 +18,4 @@ before_script:
 
 script:
     - ./test.sh
+    - $GOPATH/bin/goveralls -service=travis-ci
