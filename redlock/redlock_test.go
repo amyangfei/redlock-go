@@ -144,6 +144,25 @@ func TestParseConnString(t *testing.T) {
 	}
 }
 
+func TestNewRedLockError(t *testing.T) {
+	testCases := []struct {
+		addrs   []string
+		success bool
+	}{
+		{[]string{"127.0.0.1:6379"}, false},
+		{[]string{"tcp://127.0.0.1:6379", "tcp://127.0.0.1:6380"}, false},
+		{[]string{"tcp://127.0.0.1:6379", "tcp://127.0.0.1:6380", "tcp://127.0.0.1:6381"}, true},
+	}
+	for _, tc := range testCases {
+		_, err := NewRedLock(tc.addrs)
+		if tc.success {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+}
+
 func TestRedlockSetter(t *testing.T) {
 	lock, err := NewRedLock(redisServers)
 	assert.Nil(t, err)
