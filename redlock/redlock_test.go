@@ -1,11 +1,14 @@
 package redlock
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/juju/errors"
@@ -122,6 +125,9 @@ func TestParseConnString(t *testing.T) {
 		{"127.0.0.1", false, nil},
 		{"127.0.0.1:6379", false, nil}, // must provide scheme
 		{"tcp://127.0.0.1:6379", true, &redis.Options{Addr: "127.0.0.1:6379"}},
+		{"tcp://:password@127.0.0.1:6379/2?DialTimeout=1.5&ReadTimeout=2&WriteTimeout=2", false, nil},
+		{"tcp://:password@127.0.0.1:6379/2?DialTimeout=1&ReadTimeout=2.5&WriteTimeout=2", false, nil},
+		{"tcp://:password@127.0.0.1:6379/2?DialTimeout=1&ReadTimeout=2&WriteTimeout=2.5", false, nil},
 		{"tcp://:password@127.0.0.1:6379/2?DialTimeout=1&ReadTimeout=2&WriteTimeout=2",
 			true, &redis.Options{
 				Addr: "127.0.0.1:6379", Password: "password", DB: 2,
@@ -136,4 +142,57 @@ func TestParseConnString(t *testing.T) {
 			assert.Exactly(t, tc.opts, opts)
 		}
 	}
+}
+
+func TestRedlockSetter(t *testing.T) {
+	lock, err := NewRedLock(redisServers)
+	assert.Nil(t, err)
+
+	retryCount := lock.retryCount
+	lock.SetRetryCount(0)
+	assert.Equal(t, retryCount, lock.retryCount)
+	lock.SetRetryCount(retryCount + 3)
+	assert.Equal(t, retryCount+3, lock.retryCount)
+
+	retryDelay := lock.retryDelay
+	lock.SetRetryDelay(0)
+	assert.Equal(t, retryDelay, lock.retryDelay)
+	lock.SetRetryDelay(retryDelay + 100)
+	assert.Equal(t, retryDelay+100, lock.retryDelay)
+}
+
+func TestAcquireLockFailed(t *testing.T) {
+	servers := make([]string, 0, len(redisServers))
+	clis := make([]*redis.Client, 0, len(redisServers))
+	for _, server := range redisServers {
+		server2 := fmt.Sprintf("%s/3?DialTimeout=1&ReadTimeout=1&WriteTimeout=1", server)
+		servers = append(servers, server2)
+		opts, err := parseConnString(server2)
+		assert.Nil(t, err)
+		clis = append(clis, redis.NewClient(opts))
+	}
+	var wg sync.WaitGroup
+	for idx, cli := range clis {
+		// block two of redis instances
+		if idx == 0 {
+			continue
+		}
+		wg.Add(1)
+		go func(c *redis.Client) {
+			c.ClientPause(time.Second * 4)
+			t := time.NewTicker(4 * time.Second)
+			select {
+			case <-t.C:
+				wg.Done()
+			}
+		}(cli)
+	}
+	lock, err := NewRedLock(servers)
+	assert.Nil(t, err)
+
+	validity, err := lock.Lock("foo", 100)
+	assert.Equal(t, int64(0), validity)
+	assert.NotNil(t, err)
+
+	wg.Wait()
 }
