@@ -25,7 +25,7 @@ To acquire a lock:
 Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
 
 The err is not `nil` if the lock was not acquired (you may try again),
-otherwise an expirity lager than zero is returned representing the number of milliseconds the lock will be valid.
+otherwise an expirity larger than zero is returned representing the number of milliseconds the lock will be valid.
 
 To release a lock:
 
