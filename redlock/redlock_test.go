@@ -23,12 +23,23 @@ var redisServers = []string{
 
 func TestBasicLock(t *testing.T) {
 	lock, err := NewRedLock(redisServers)
-
 	assert.Nil(t, err)
 
 	_, err = lock.Lock("foo", 200)
 	assert.Nil(t, err)
-	lock.UnLock("foo")
+	err = lock.UnLock("foo")
+	assert.Nil(t, err)
+}
+
+func TestUnlockExpiredKey(t *testing.T) {
+	lock, err := NewRedLock(redisServers)
+	assert.Nil(t, err)
+
+	_, err = lock.Lock("foo", 50)
+	assert.Nil(t, err)
+	time.Sleep(time.Millisecond * 51)
+	err = lock.UnLock("foo")
+	assert.Nil(t, err)
 }
 
 const (
