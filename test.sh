@@ -7,7 +7,7 @@ PACKAGES=$(go list ./... | grep -vE 'vendor|examples')
 FILES=$(find . -name "*.go" | grep -vE "vendor|examples")
 
 echo "Running tests..."
-GO111MODULE=on go test -v -cover ${PACKAGES}
+GO111MODULE=on go test -race -v -cover ${PACKAGES}
 
 echo "Checking gofmt..."
 gofmt -s -l -w ${FILES} 2>&1 | awk '{print} END{if(NR>0) {exit 1}}'
