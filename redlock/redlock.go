@@ -42,9 +42,7 @@ type RedLock struct {
 	clients []*RedClient
 	quorum  int
 
-	resource string
-	val      string
-	expiry   int64
+	cache KVCache
 }
 
 // RedClient holds client to redis
@@ -128,6 +126,7 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 		driftFactor: ClockDriftFactor,
 		quorum:      len(addrs)/2 + 1,
 		clients:     clients,
+		cache:       NewSimpleCache(),
 	}, nil
 }
 
@@ -179,7 +178,7 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 	for i := 0; i < r.retryCount; i++ {
 		c := make(chan bool, len(r.clients))
 		success := 0
-		start := time.Now().UnixNano()
+		start := time.Now()
 
 		for _, cli := range r.clients {
 			go lockInstance(cli, resource, val, ttl, c)
@@ -191,12 +190,10 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 		}
 
 		drift := int(float64(ttl)*r.driftFactor) + 2
-		costTime := (time.Now().UnixNano() - start) / 1e6
+		costTime := time.Since(start).Nanoseconds() / 1e6
 		validityTime := int64(ttl) - costTime - int64(drift)
 		if success >= r.quorum && validityTime > 0 {
-			r.resource = resource
-			r.val = val
-			r.expiry = validityTime
+			r.cache.Set(resource, val, validityTime)
 			return validityTime, nil
 		}
 		cul := make(chan bool, len(r.clients))
@@ -214,13 +211,14 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 }
 
 // UnLock releases an acquired lock
-func (r *RedLock) UnLock() error {
-	resource, val := r.resource, r.val
-	r.resource = ""
-	r.val = ""
+func (r *RedLock) UnLock(resource string) error {
+	elem := r.cache.Get(resource)
+	if elem == nil {
+		return nil
+	}
 	c := make(chan bool, len(r.clients))
 	for _, cli := range r.clients {
-		go unlockInstance(cli, resource, val, c)
+		go unlockInstance(cli, resource, elem.val, c)
 	}
 	for i := 0; i < len(r.clients); i++ {
 		<-c

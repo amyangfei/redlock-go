@@ -29,6 +29,6 @@ otherwise an expirity larger than zero is returned representing the number of mi
 
 To release a lock:
 
-    err := lockMgr.UnLock()
+    err := lockMgr.UnLock("resource_name")
 
 You can find sample code in [_examples](./_examples) dir.

@@ -28,7 +28,7 @@ func TestBasicLock(t *testing.T) {
 
 	_, err = lock.Lock("foo", 200)
 	assert.Nil(t, err)
-	lock.UnLock()
+	lock.UnLock("foo")
 }
 
 const (
@@ -69,7 +69,7 @@ func writer(count int, back chan *countResp) {
 				f.Sync()
 				f.Close()
 
-				lock.UnLock()
+				lock.UnLock("foo")
 			}
 		}
 	}
