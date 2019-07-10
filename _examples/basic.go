@@ -23,5 +23,5 @@ func main() {
 	} else {
 		fmt.Printf("got lock, with expiry %d ms\n", expiry)
 	}
-	defer lock.UnLock()
+	defer lock.UnLock("foo")
 }

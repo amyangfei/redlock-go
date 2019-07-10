@@ -41,7 +41,7 @@ func writer(count int, back chan string) {
 				num, _ := strconv.ParseInt(strings.TrimRight(string(buf[:n]), "\n"), 10, 64)
 				f.WriteAt([]byte(strconv.Itoa(int(num+1))), 0)
 				incr += 1
-				lock.UnLock()
+				lock.UnLock("foo")
 			}
 			// defer lock.UnLock()
 		}
