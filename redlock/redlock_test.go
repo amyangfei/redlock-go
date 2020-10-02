@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
-	"github.com/juju/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,7 +50,7 @@ func writer(count int, back chan *countResp) {
 
 	if err != nil {
 		back <- &countResp{
-			err: errors.Trace(err),
+			err: err,
 		}
 		return
 	}
@@ -66,7 +65,7 @@ func writer(count int, back chan *countResp) {
 				f, err := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE, os.ModePerm)
 				if err != nil {
 					back <- &countResp{
-						err: errors.Trace(err),
+						err: err,
 					}
 					return
 				}

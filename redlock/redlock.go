@@ -3,6 +3,8 @@ package redlock
 import (
 	crand "crypto/rand"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"math/rand"
 	"net/url"
 	"strconv"
@@ -10,7 +12,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
-	"github.com/juju/errors"
 )
 
 const (
@@ -54,7 +55,7 @@ type RedClient struct {
 func parseConnString(addr string) (*redis.Options, error) {
 	u, err := url.Parse(addr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	opts := &redis.Options{
@@ -68,7 +69,7 @@ func parseConnString(addr string) (*redis.Options, error) {
 	}
 	db, err := strconv.Atoi(dbStr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	opts.DB = db
 
@@ -81,21 +82,21 @@ func parseConnString(addr string) (*redis.Options, error) {
 		if k == "DialTimeout" {
 			timeout, err := strconv.Atoi(v[0])
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
 			opts.DialTimeout = time.Duration(timeout)
 		}
 		if k == "ReadTimeout" {
 			timeout, err := strconv.Atoi(v[0])
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
 			opts.ReadTimeout = time.Duration(timeout)
 		}
 		if k == "WriteTimeout" {
 			timeout, err := strconv.Atoi(v[0])
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
 			opts.WriteTimeout = time.Duration(timeout)
 		}
@@ -107,14 +108,14 @@ func parseConnString(addr string) (*redis.Options, error) {
 // NewRedLock creates a RedLock
 func NewRedLock(addrs []string) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
-		return nil, errors.Errorf("error redis server list: %d", len(addrs))
+		return nil, fmt.Errorf("error redis server list: %d", len(addrs))
 	}
 
 	clients := []*RedClient{}
 	for _, addr := range addrs {
 		opts, err := parseConnString(addr)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		cli := redis.NewClient(opts)
 		clients = append(clients, &RedClient{addr, cli})
