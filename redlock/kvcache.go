@@ -28,6 +28,9 @@ type KVCache interface {
 	// Delete removes the LockElem with given key from storage
 	Delete(key string)
 
+	// Size returns element count in kv storage
+	Size() int
+
 	// GC cleans the expired LockElem stored in storage
 	GC()
 }
@@ -75,6 +78,13 @@ func (sc *SimpleCache) Delete(key string) {
 	sc.lock.Lock()
 	defer sc.lock.Unlock()
 	delete(sc.kvs, key)
+}
+
+// Size implements KVCache.Size
+func (sc *SimpleCache) Size() int {
+	sc.lock.RLock()
+	defer sc.lock.RUnlock()
+	return len(sc.kvs)
 }
 
 // GC implements KVCache.GC

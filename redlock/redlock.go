@@ -216,6 +216,7 @@ func (r *RedLock) UnLock(resource string) error {
 	if elem == nil {
 		return nil
 	}
+	defer r.cache.Delete(resource)
 	c := make(chan bool, len(r.clients))
 	for _, cli := range r.clients {
 		go unlockInstance(cli, resource, elem.val, c)
