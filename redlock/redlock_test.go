@@ -227,24 +227,21 @@ func TestAcquireLockFailed(t *testing.T) {
 }
 
 func TestKVCache(t *testing.T) {
-	lock, err := NewRedLock(redisServers)
-	assert.Nil(t, err)
-
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
-		i := i
 		go func() {
 			defer wg.Done()
+			lock, err := NewRedLock(redisServers)
+			assert.Nil(t, err)
 			for j := 0; j < 100; j++ {
-				key := fmt.Sprintf("foo-%d-%d", i, j)
-				_, err = lock.Lock(key, 200)
+				_, err = lock.Lock("foo", 200)
 				assert.Nil(t, err)
-				err = lock.UnLock(key)
+				err = lock.UnLock("foo")
 				assert.Nil(t, err)
 			}
+			assert.Zero(t, lock.cache.Size())
 		}()
 	}
-	wg.Done()
-	assert.Zero(t, lock.cache.Size())
+	wg.Wait()
 }
