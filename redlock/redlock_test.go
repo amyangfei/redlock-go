@@ -226,7 +226,7 @@ func TestAcquireLockFailed(t *testing.T) {
 	wg.Wait()
 }
 
-func TestKVCache(t *testing.T) {
+func testKVCacheWrap(t *testing.T, cacheType string) {
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
@@ -234,6 +234,7 @@ func TestKVCache(t *testing.T) {
 			defer wg.Done()
 			lock, err := NewRedLock(redisServers)
 			assert.Nil(t, err)
+			lock.SetCache(cacheType, nil)
 			for j := 0; j < 100; j++ {
 				_, err = lock.Lock("foo", 200)
 				assert.Nil(t, err)
@@ -244,4 +245,9 @@ func TestKVCache(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestKVCache(t *testing.T) {
+	testKVCacheWrap(t, CacheTypeSimple)
+	testKVCacheWrap(t, CacheTypeFreeCache)
 }

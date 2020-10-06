@@ -127,8 +127,13 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 		driftFactor: ClockDriftFactor,
 		quorum:      len(addrs)/2 + 1,
 		clients:     clients,
-		cache:       NewSimpleCache(),
+		cache:       NewCacheImpl(CacheTypeSimple, nil),
 	}, nil
+}
+
+// SetCache resets cache based on cache type
+func (r *RedLock) SetCache(cacheType string, opts map[string]interface{}) {
+	r.cache = NewCacheImpl(cacheType, opts)
 }
 
 // SetRetryCount sets acquire lock retry count
@@ -213,14 +218,17 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 
 // UnLock releases an acquired lock
 func (r *RedLock) UnLock(resource string) error {
-	elem := r.cache.Get(resource)
+	elem, err := r.cache.Get(resource)
+	if err != nil {
+		return err
+	}
 	if elem == nil {
 		return nil
 	}
 	defer r.cache.Delete(resource)
 	c := make(chan bool, len(r.clients))
 	for _, cli := range r.clients {
-		go unlockInstance(cli, resource, elem.val, c)
+		go unlockInstance(cli, resource, elem.Val, c)
 	}
 	for i := 0; i < len(r.clients); i++ {
 		<-c
