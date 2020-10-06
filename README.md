@@ -32,3 +32,40 @@ To release a lock:
     err := lockMgr.UnLock("resource_name")
 
 You can find sample code in [_examples](./_examples) dir.
+
+### Options
+
+A KV cache is used for local lock item query, currently this library provides two KV cache implemenations: map based cache and [freecache](https://github.com/coocood/freecache) based cache. Besides some cache related options can be set by passing an option map.
+
+#### map based cache
+
+```golang
+import "github.com/amyangfei/redlock-go/redlock"
+
+lock, err := redlock.NewRedLock([]string{
+        "tcp://127.0.0.1:6379",
+        "tcp://127.0.0.1:6380",
+        "tcp://127.0.0.1:6381",
+})
+opts := map[string]interface{}{
+        redlock.OptDisableGC: false,
+        redlock.OptGCInterval: "1m",
+}
+lock.SetCache(redlock.CacheTypeSimple, opts)
+```
+
+#### freecache based cache
+
+```golang
+import "github.com/amyangfei/redlock-go/redlock"
+
+lock, err := redlock.NewRedLock([]string{
+        "tcp://127.0.0.1:6379",
+        "tcp://127.0.0.1:6380",
+        "tcp://127.0.0.1:6381",
+})
+opts := map[string]interface{}{
+        redlock.OptCacheSize: 10*1024*1024, // 10 Megabytes
+}
+lock.SetCache(redlock.CacheTypeFreeCache, opts)
+```
