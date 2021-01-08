@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/amyangfei/redlock-go/v2/redlock"
 )
@@ -19,11 +20,11 @@ func main() {
 	}
 
 	ctx := context.Background()
-	expiry, err := lock.Lock(ctx, "foo", 200)
+	expiry, err := lock.Lock(ctx, "foo", 200*time.Millisecond)
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Printf("got lock, with expiry %d ms\n", expiry)
+		fmt.Printf("got lock, with expiry %s\n", expiry)
 	}
 	defer lock.UnLock(ctx, "foo")
 }

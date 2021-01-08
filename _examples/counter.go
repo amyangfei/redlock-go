@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amyangfei/redlock-go/v2/redlock"
 )
@@ -28,7 +29,7 @@ func writer(count int, back chan string) {
 
 	incr := 0
 	for i := 0; i < count; i++ {
-		expiry, err := lock.Lock(ctx, "foo", 1000)
+		expiry, err := lock.Lock(ctx, "foo", 1000*time.Millisecond)
 		if err != nil {
 			fmt.Println(err)
 		} else {

@@ -40,7 +40,7 @@ To acquire a lock:
 import "github.com/amyangfei/redlock-go/v2/redlock"
 
 ctx := context.Background()
-expirity, err := lockMgr.Lock(ctx, "resource_name", 200)
+expirity, err := lockMgr.Lock(ctx, "resource_name", 200*time.Milliseconds)
 ```
 
 Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
