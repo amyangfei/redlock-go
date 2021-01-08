@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/amyangfei/redlock-go/redlock"
+	"github.com/amyangfei/redlock-go/redlock/v2"
 )
 
 const (

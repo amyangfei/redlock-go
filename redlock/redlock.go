@@ -1,6 +1,7 @@
 package redlock
 
 import (
+	"context"
 	crand "crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -11,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -158,12 +159,12 @@ func getRandStr() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func lockInstance(client *RedClient, resource string, val string, ttl int, c chan bool) {
+func lockInstance(ctx context.Context, client *RedClient, resource string, val string, ttl int, c chan bool) {
 	if client.cli == nil {
 		c <- false
 		return
 	}
-	reply := client.cli.SetNX(resource, val, time.Duration(ttl)*time.Millisecond)
+	reply := client.cli.SetNX(ctx, resource, val, time.Duration(ttl)*time.Millisecond)
 	if reply.Err() != nil || !reply.Val() {
 		c <- false
 		return
@@ -171,15 +172,15 @@ func lockInstance(client *RedClient, resource string, val string, ttl int, c cha
 	c <- true
 }
 
-func unlockInstance(client *RedClient, resource string, val string, c chan bool) {
+func unlockInstance(ctx context.Context, client *RedClient, resource string, val string, c chan bool) {
 	if client.cli != nil {
-		client.cli.Eval(UnlockScript, []string{resource}, val)
+		client.cli.Eval(ctx, UnlockScript, []string{resource}, val)
 	}
 	c <- true
 }
 
 // Lock acquires a distribute lock
-func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
+func (r *RedLock) Lock(ctx context.Context, resource string, ttl int) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < r.retryCount; i++ {
 		c := make(chan bool, len(r.clients))
@@ -187,7 +188,7 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 		start := time.Now()
 
 		for _, cli := range r.clients {
-			go lockInstance(cli, resource, val, ttl, c)
+			go lockInstance(ctx, cli, resource, val, ttl, c)
 		}
 		for j := 0; j < len(r.clients); j++ {
 			if <-c {
@@ -204,7 +205,7 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 		}
 		cul := make(chan bool, len(r.clients))
 		for _, cli := range r.clients {
-			go unlockInstance(cli, resource, val, cul)
+			go unlockInstance(ctx, cli, resource, val, cul)
 		}
 		for j := 0; j < len(r.clients); j++ {
 			<-cul
@@ -217,7 +218,7 @@ func (r *RedLock) Lock(resource string, ttl int) (int64, error) {
 }
 
 // UnLock releases an acquired lock
-func (r *RedLock) UnLock(resource string) error {
+func (r *RedLock) UnLock(ctx context.Context, resource string) error {
 	elem, err := r.cache.Get(resource)
 	if err != nil {
 		return err
@@ -228,7 +229,7 @@ func (r *RedLock) UnLock(resource string) error {
 	defer r.cache.Delete(resource)
 	c := make(chan bool, len(r.clients))
 	for _, cli := range r.clients {
-		go unlockInstance(cli, resource, elem.Val, c)
+		go unlockInstance(ctx, cli, resource, elem.Val, c)
 	}
 	for i := 0; i < len(r.clients); i++ {
 		<-c

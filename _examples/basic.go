@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/amyangfei/redlock-go/redlock"
+	"github.com/amyangfei/redlock-go/redlock/v2"
 )
 
 func main() {

@@ -12,15 +12,20 @@ This Golang lib implements the Redis-based distributed lock manager algorithm [d
 
 To create a lock manager:
 
-    lockMgr, err := redlock.NewRedLock([]string{
-            "tcp://127.0.0.1:6379",
-            "tcp://127.0.0.1:6380",
-            "tcp://127.0.0.1:6381",
-    })
+```golang
+lockMgr, err := redlock.NewRedLock([]string{
+        "tcp://127.0.0.1:6379",
+        "tcp://127.0.0.1:6380",
+        "tcp://127.0.0.1:6381",
+})
+```
 
 To acquire a lock:
 
-    expirity, err := lockMgr.Lock("resource_name", 200)
+```golang
+ctx := context.Background()
+expirity, err := lockMgr.Lock(ctx, "resource_name", 200)
+```
 
 Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
 
@@ -29,7 +34,10 @@ otherwise an expirity larger than zero is returned representing the number of mi
 
 To release a lock:
 
-    err := lockMgr.UnLock("resource_name")
+```golang
+ctx := context.Background()
+err := lockMgr.UnLock(ctx, "resource_name")
+```
 
 You can find sample code in [_examples](./_examples) dir.
 
@@ -40,7 +48,7 @@ A KV cache is used for local lock item query, currently this library provides tw
 #### map based cache
 
 ```golang
-import "github.com/amyangfei/redlock-go/redlock"
+import "github.com/amyangfei/redlock-go/redlock/v2"
 
 lock, err := redlock.NewRedLock([]string{
         "tcp://127.0.0.1:6379",

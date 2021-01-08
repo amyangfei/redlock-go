@@ -1,6 +1,7 @@
 package redlock
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,23 +22,25 @@ var redisServers = []string{
 }
 
 func TestBasicLock(t *testing.T) {
+	ctx := context.Background()
 	lock, err := NewRedLock(redisServers)
 	assert.Nil(t, err)
 
-	_, err = lock.Lock("foo", 200)
+	_, err = lock.Lock(ctx, "foo", 200)
 	assert.Nil(t, err)
-	err = lock.UnLock("foo")
+	err = lock.UnLock(ctx, "foo")
 	assert.Nil(t, err)
 }
 
 func TestUnlockExpiredKey(t *testing.T) {
+	ctx := context.Background()
 	lock, err := NewRedLock(redisServers)
 	assert.Nil(t, err)
 
-	_, err = lock.Lock("foo", 50)
+	_, err = lock.Lock(ctx, "foo", 50)
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 51)
-	err = lock.UnLock("foo")
+	err = lock.UnLock(ctx, "foo")
 	assert.Nil(t, err)
 }
 
@@ -46,6 +49,7 @@ const (
 )
 
 func writer(count int, back chan *countResp) {
+	ctx := context.Background()
 	lock, err := NewRedLock(redisServers)
 
 	if err != nil {
@@ -57,7 +61,7 @@ func writer(count int, back chan *countResp) {
 
 	incr := 0
 	for i := 0; i < count; i++ {
-		expiry, err := lock.Lock("foo", 1000)
+		expiry, err := lock.Lock(ctx, "foo", 1000)
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -79,7 +83,7 @@ func writer(count int, back chan *countResp) {
 				f.Sync()
 				f.Close()
 
-				lock.UnLock("foo")
+				lock.UnLock(ctx, "foo")
 			}
 		}
 	}
@@ -191,6 +195,7 @@ func TestRedlockSetter(t *testing.T) {
 }
 
 func TestAcquireLockFailed(t *testing.T) {
+	ctx := context.Background()
 	servers := make([]string, 0, len(redisServers))
 	clis := make([]*redis.Client, 0, len(redisServers))
 	for _, server := range redisServers {
@@ -208,7 +213,7 @@ func TestAcquireLockFailed(t *testing.T) {
 		}
 		wg.Add(1)
 		go func(c *redis.Client) {
-			c.ClientPause(time.Second * 4)
+			c.ClientPause(ctx, time.Second*4)
 			t := time.NewTicker(4 * time.Second)
 			select {
 			case <-t.C:
@@ -219,7 +224,7 @@ func TestAcquireLockFailed(t *testing.T) {
 	lock, err := NewRedLock(servers)
 	assert.Nil(t, err)
 
-	validity, err := lock.Lock("foo", 100)
+	validity, err := lock.Lock(ctx, "foo", 100)
 	assert.Equal(t, int64(0), validity)
 	assert.NotNil(t, err)
 
@@ -227,6 +232,7 @@ func TestAcquireLockFailed(t *testing.T) {
 }
 
 func testKVCacheWrap(t *testing.T, cacheType string) {
+	ctx := context.Background()
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
@@ -236,9 +242,9 @@ func testKVCacheWrap(t *testing.T, cacheType string) {
 			assert.Nil(t, err)
 			lock.SetCache(cacheType, nil)
 			for j := 0; j < 100; j++ {
-				_, err = lock.Lock("foo", 200)
+				_, err = lock.Lock(ctx, "foo", 200)
 				assert.Nil(t, err)
-				err = lock.UnLock("foo")
+				err = lock.UnLock(ctx, "foo")
 				assert.Nil(t, err)
 			}
 			assert.Zero(t, lock.cache.Size())
