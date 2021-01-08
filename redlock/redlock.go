@@ -166,8 +166,8 @@ func getRandStr() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func lockInstance(ctx context.Context, client *RedClient, resource string, val string, ttl int) (bool, error) {
-	reply := client.cli.SetNX(ctx, resource, val, time.Duration(ttl)*time.Millisecond)
+func lockInstance(ctx context.Context, client *RedClient, resource string, val string, ttl time.Duration) (bool, error) {
+	reply := client.cli.SetNX(ctx, resource, val, ttl)
 	if reply.Err() != nil {
 		return false, reply.Err()
 	}
@@ -186,12 +186,12 @@ func unlockInstance(ctx context.Context, client *RedClient, resource string, val
 }
 
 // Lock acquires a distribute lock
-func (r *RedLock) Lock(ctx context.Context, resource string, ttl int) (int64, error) {
+func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < r.retryCount; i++ {
 		start := time.Now()
 		success := int32(0)
-		cctx, cancel := context.WithTimeout(ctx, time.Duration(ttl*1e6))
+		cctx, cancel := context.WithTimeout(ctx, ttl)
 		var wg sync.WaitGroup
 		for _, cli := range r.clients {
 			cli := cli
@@ -208,13 +208,13 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl int) (int64, er
 		cancel()
 
 		drift := int(float64(ttl)*r.driftFactor) + 2
-		costTime := time.Since(start).Nanoseconds() / 1e6
+		costTime := time.Since(start).Nanoseconds()
 		validityTime := int64(ttl) - costTime - int64(drift)
 		if int(success) >= r.quorum && validityTime > 0 {
 			r.cache.Set(resource, val, validityTime)
 			return validityTime, nil
 		}
-		cctx, cancel = context.WithTimeout(ctx, time.Duration(ttl*1e6))
+		cctx, cancel = context.WithTimeout(ctx, ttl)
 		for _, cli := range r.clients {
 			cli := cli
 			wg.Add(1)

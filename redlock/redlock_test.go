@@ -26,7 +26,7 @@ func TestBasicLock(t *testing.T) {
 	lock, err := NewRedLock(redisServers)
 	assert.Nil(t, err)
 
-	_, err = lock.Lock(ctx, "foo", 200)
+	_, err = lock.Lock(ctx, "foo", 200*time.Millisecond)
 	assert.Nil(t, err)
 	err = lock.UnLock(ctx, "foo")
 	assert.Nil(t, err)
@@ -37,9 +37,9 @@ func TestUnlockExpiredKey(t *testing.T) {
 	lock, err := NewRedLock(redisServers)
 	assert.Nil(t, err)
 
-	_, err = lock.Lock(ctx, "foo", 50)
+	_, err = lock.Lock(ctx, "foo", 50*time.Millisecond)
 	assert.Nil(t, err)
-	time.Sleep(time.Millisecond * 51)
+	time.Sleep(51 * time.Millisecond)
 	err = lock.UnLock(ctx, "foo")
 	assert.Nil(t, err)
 }
@@ -61,7 +61,7 @@ func writer(count int, back chan *countResp) {
 
 	incr := 0
 	for i := 0; i < count; i++ {
-		expiry, err := lock.Lock(ctx, "foo", 1000)
+		expiry, err := lock.Lock(ctx, "foo", 1000*time.Millisecond)
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -224,7 +224,7 @@ func TestAcquireLockFailed(t *testing.T) {
 	lock, err := NewRedLock(servers)
 	assert.Nil(t, err)
 
-	validity, err := lock.Lock(ctx, "foo", 100)
+	validity, err := lock.Lock(ctx, "foo", 100*time.Millisecond)
 	assert.Equal(t, int64(0), validity)
 	assert.NotNil(t, err)
 
@@ -242,7 +242,7 @@ func testKVCacheWrap(t *testing.T, cacheType string) {
 			assert.Nil(t, err)
 			lock.SetCache(cacheType, nil)
 			for j := 0; j < 100; j++ {
-				_, err = lock.Lock(ctx, "foo", 200)
+				_, err = lock.Lock(ctx, "foo", 200*time.Millisecond)
 				assert.Nil(t, err)
 				err = lock.UnLock(ctx, "foo")
 				assert.Nil(t, err)

@@ -31,12 +31,12 @@ type LockElem struct {
 }
 
 func (e *LockElem) expire() bool {
-	return time.Since(e.Ts).Nanoseconds()/1e6 > e.Expiry
+	return time.Since(e.Ts).Nanoseconds() > e.Expiry
 }
 
 // KVCache defines interface for redlock key value storage
 type KVCache interface {
-	// Set sets the key value with its expiry in milliseconds
+	// Set sets the key value with its expiry in nanoseconds
 	Set(key, val string, expiry int64) (*LockElem, error)
 
 	// Get queries LockElem from given key

@@ -16,8 +16,8 @@ func TestSimpleCache(t *testing.T) {
 	var (
 		key               = "test_key"
 		val               = "test_value"
-		expiry      int64 = 1000
-		shortExpiry int64 = 50
+		expiry      int64 = 1_000_000
+		shortExpiry int64 = 5_000
 		elem, elem2 *LockElem
 		err         error
 	)
@@ -39,7 +39,7 @@ func TestSimpleCache(t *testing.T) {
 	elem, err = cache.Set(key, val, shortExpiry)
 	assert.Nil(t, err)
 	assert.Equal(t, elem.Val, val)
-	time.Sleep(time.Millisecond * time.Duration(shortExpiry+1))
+	time.Sleep(time.Nanosecond * time.Duration(shortExpiry+1))
 	elem, err = cache.Get(key)
 	assert.Nil(t, err)
 	assert.Nil(t, elem)
@@ -48,7 +48,7 @@ func TestSimpleCache(t *testing.T) {
 	elem, err = cache.Set(key, val, shortExpiry)
 	assert.Nil(t, err)
 	assert.Equal(t, elem.Val, val)
-	time.Sleep(time.Millisecond * time.Duration(shortExpiry+1))
+	time.Sleep(time.Nanosecond * time.Duration(shortExpiry+1))
 	cache.gc()
 	assert.Zero(t, cache.Size())
 
