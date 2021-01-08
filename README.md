@@ -8,6 +8,20 @@ Redis distributed locks in Golang
 
 This Golang lib implements the Redis-based distributed lock manager algorithm [described in this blog post](http://antirez.com/news/77).
 
+## Installation
+
+This library requires a Go version with modules support. So make sure to initialize a Go module:
+
+```bash
+go mod init github.com/<user>/<repo>
+```
+
+And then install this library via go get
+
+```bash
+go get github.com/amyangfei/redlock-go/v2
+```
+
 ## Usage
 
 To create a lock manager:
@@ -23,6 +37,8 @@ lockMgr, err := redlock.NewRedLock([]string{
 To acquire a lock:
 
 ```golang
+import "github.com/amyangfei/redlock-go/v2/redlock"
+
 ctx := context.Background()
 expirity, err := lockMgr.Lock(ctx, "resource_name", 200)
 ```
@@ -35,6 +51,8 @@ otherwise an expirity larger than zero is returned representing the number of mi
 To release a lock:
 
 ```golang
+import "github.com/amyangfei/redlock-go/v2/redlock"
+
 ctx := context.Background()
 err := lockMgr.UnLock(ctx, "resource_name")
 ```
@@ -48,7 +66,7 @@ A KV cache is used for local lock item query, currently this library provides tw
 #### map based cache
 
 ```golang
-import "github.com/amyangfei/redlock-go/redlock/v2"
+import "github.com/amyangfei/redlock-go/v2/redlock"
 
 lock, err := redlock.NewRedLock([]string{
         "tcp://127.0.0.1:6379",
@@ -65,7 +83,7 @@ lock.SetCache(redlock.CacheTypeSimple, opts)
 #### freecache based cache
 
 ```golang
-import "github.com/amyangfei/redlock-go/redlock"
+import "github.com/amyangfei/redlock-go/v2/redlock"
 
 lock, err := redlock.NewRedLock([]string{
         "tcp://127.0.0.1:6379",

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/amyangfei/redlock-go/redlock/v2"
+	"github.com/amyangfei/redlock-go/v2/redlock"
 )
 
 func main() {
