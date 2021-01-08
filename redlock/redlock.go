@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -33,6 +35,11 @@ const (
             return 0
         end
         `
+)
+
+var (
+	// ErrLockSingleRedis represents error when acquiring lock on a single redis
+	ErrLockSingleRedis = errors.New("set lock on single redis failed")
 )
 
 // RedLock holds the redis lock
@@ -159,57 +166,65 @@ func getRandStr() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func lockInstance(ctx context.Context, client *RedClient, resource string, val string, ttl int, c chan bool) {
-	if client.cli == nil {
-		c <- false
-		return
-	}
+func lockInstance(ctx context.Context, client *RedClient, resource string, val string, ttl int) (bool, error) {
 	reply := client.cli.SetNX(ctx, resource, val, time.Duration(ttl)*time.Millisecond)
-	if reply.Err() != nil || !reply.Val() {
-		c <- false
-		return
+	if reply.Err() != nil {
+		return false, reply.Err()
 	}
-	c <- true
+	if !reply.Val() {
+		return false, ErrLockSingleRedis
+	}
+	return true, nil
 }
 
-func unlockInstance(ctx context.Context, client *RedClient, resource string, val string, c chan bool) {
-	if client.cli != nil {
-		client.cli.Eval(ctx, UnlockScript, []string{resource}, val)
+func unlockInstance(ctx context.Context, client *RedClient, resource string, val string) (bool, error) {
+	reply := client.cli.Eval(ctx, UnlockScript, []string{resource}, val)
+	if reply.Err() != nil {
+		return false, reply.Err()
 	}
-	c <- true
+	return true, nil
 }
 
 // Lock acquires a distribute lock
 func (r *RedLock) Lock(ctx context.Context, resource string, ttl int) (int64, error) {
 	val := getRandStr()
 	for i := 0; i < r.retryCount; i++ {
-		c := make(chan bool, len(r.clients))
-		success := 0
 		start := time.Now()
-
+		success := int32(0)
+		cctx, cancel := context.WithTimeout(ctx, time.Duration(ttl*1e6))
+		var wg sync.WaitGroup
 		for _, cli := range r.clients {
-			go lockInstance(ctx, cli, resource, val, ttl, c)
+			cli := cli
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				locked, _ := lockInstance(cctx, cli, resource, val, ttl) // nolint:errcheck
+				if locked {
+					atomic.AddInt32(&success, 1)
+				}
+			}()
 		}
-		for j := 0; j < len(r.clients); j++ {
-			if <-c {
-				success++
-			}
-		}
+		wg.Wait()
+		cancel()
 
 		drift := int(float64(ttl)*r.driftFactor) + 2
 		costTime := time.Since(start).Nanoseconds() / 1e6
 		validityTime := int64(ttl) - costTime - int64(drift)
-		if success >= r.quorum && validityTime > 0 {
+		if int(success) >= r.quorum && validityTime > 0 {
 			r.cache.Set(resource, val, validityTime)
 			return validityTime, nil
 		}
-		cul := make(chan bool, len(r.clients))
+		cctx, cancel = context.WithTimeout(ctx, time.Duration(ttl*1e6))
 		for _, cli := range r.clients {
-			go unlockInstance(ctx, cli, resource, val, cul)
+			cli := cli
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				unlockInstance(ctx, cli, resource, val) // nolint:errcheck
+			}()
 		}
-		for j := 0; j < len(r.clients); j++ {
-			<-cul
-		}
+		wg.Wait()
+		cancel()
 		// Wait a random delay before to retry
 		time.Sleep(time.Duration(rand.Intn(r.retryDelay)) * time.Millisecond)
 	}
@@ -227,12 +242,15 @@ func (r *RedLock) UnLock(ctx context.Context, resource string) error {
 		return nil
 	}
 	defer r.cache.Delete(resource)
-	c := make(chan bool, len(r.clients))
+	var wg sync.WaitGroup
 	for _, cli := range r.clients {
-		go unlockInstance(ctx, cli, resource, elem.Val, c)
+		cli := cli
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			unlockInstance(ctx, cli, resource, elem.Val) //nolint:errcheck
+		}()
 	}
-	for i := 0; i < len(r.clients); i++ {
-		<-c
-	}
+	wg.Wait()
 	return nil
 }
