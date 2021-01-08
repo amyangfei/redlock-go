@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,6 +15,7 @@ const (
 )
 
 func writer(count int, back chan string) {
+	ctx := context.Background()
 	lock, err := redlock.NewRedLock([]string{
 		"tcp://127.0.0.1:6379",
 		"tcp://127.0.0.1:6380",
@@ -26,7 +28,7 @@ func writer(count int, back chan string) {
 
 	incr := 0
 	for i := 0; i < count; i++ {
-		expiry, err := lock.Lock("foo", 1000)
+		expiry, err := lock.Lock(ctx, "foo", 1000)
 		if err != nil {
 			fmt.Println(err)
 		} else {
@@ -41,9 +43,8 @@ func writer(count int, back chan string) {
 				num, _ := strconv.ParseInt(strings.TrimRight(string(buf[:n]), "\n"), 10, 64)
 				f.WriteAt([]byte(strconv.Itoa(int(num+1))), 0)
 				incr += 1
-				lock.UnLock("foo")
+				lock.UnLock(ctx, "foo")
 			}
-			// defer lock.UnLock()
 		}
 	}
 	fmt.Printf("%s increased %d times.\n", fpath, incr)

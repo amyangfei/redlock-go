@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/amyangfei/redlock-go/redlock/v2"
@@ -17,11 +18,12 @@ func main() {
 		panic(err)
 	}
 
-	expiry, err := lock.Lock("foo", 200)
+	ctx := context.Background()
+	expiry, err := lock.Lock(ctx, "foo", 200)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		fmt.Printf("got lock, with expiry %d ms\n", expiry)
 	}
-	defer lock.UnLock("foo")
+	defer lock.UnLock(ctx, "foo")
 }
