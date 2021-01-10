@@ -213,12 +213,10 @@ func TestAcquireLockFailed(t *testing.T) {
 		}
 		wg.Add(1)
 		go func(c *redis.Client) {
-			c.ClientPause(ctx, time.Second*4)
-			t := time.NewTicker(4 * time.Second)
-			select {
-			case <-t.C:
-				wg.Done()
-			}
+			defer wg.Done()
+			dur := 4 * time.Second
+			c.ClientPause(ctx, dur)
+			time.Sleep(dur)
 		}(cli)
 	}
 	lock, err := NewRedLock(servers)
@@ -228,6 +226,33 @@ func TestAcquireLockFailed(t *testing.T) {
 	assert.Equal(t, int64(0), validity)
 	assert.NotNil(t, err)
 
+	wg.Wait()
+}
+
+func TestLockContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	clis := make([]*redis.Client, 0, len(redisServers))
+	for _, server := range redisServers {
+		opts, err := parseConnString(server)
+		assert.Nil(t, err)
+		clis = append(clis, redis.NewClient(opts))
+	}
+	var wg sync.WaitGroup
+	for _, cli := range clis {
+		wg.Add(1)
+		go func(c *redis.Client) {
+			defer wg.Done()
+			c.ClientPause(ctx, time.Second)
+			time.Sleep(time.Second)
+		}(cli)
+	}
+	lock, err := NewRedLock(redisServers)
+	assert.Nil(t, err)
+
+	cancel()
+	_, err = lock.Lock(ctx, "foo", 100*time.Millisecond)
+	assert.Equal(t, err, context.Canceled)
 	wg.Wait()
 }
 

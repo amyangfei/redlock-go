@@ -40,6 +40,9 @@ const (
 var (
 	// ErrLockSingleRedis represents error when acquiring lock on a single redis
 	ErrLockSingleRedis = errors.New("set lock on single redis failed")
+
+	// ErrAcquireLock means acquire lock failed after max retry time
+	ErrAcquireLock = errors.New("failed to require lock")
 )
 
 // RedLock holds the redis lock
@@ -190,6 +193,7 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 	val := getRandStr()
 	for i := 0; i < r.retryCount; i++ {
 		start := time.Now()
+		ctxCancel := int32(0)
 		success := int32(0)
 		cctx, cancel := context.WithTimeout(ctx, ttl)
 		var wg sync.WaitGroup
@@ -198,7 +202,10 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				locked, _ := lockInstance(cctx, cli, resource, val, ttl) // nolint:errcheck
+				locked, err := lockInstance(cctx, cli, resource, val, ttl) // nolint:errcheck
+				if err == context.Canceled {
+					atomic.AddInt32(&ctxCancel, 1)
+				}
 				if locked {
 					atomic.AddInt32(&success, 1)
 				}
@@ -206,6 +213,10 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 		}
 		wg.Wait()
 		cancel()
+		// fast fail, terminate acquiring lock if context is canceled
+		if atomic.LoadInt32(&ctxCancel) > int32(0) {
+			return 0, context.Canceled
+		}
 
 		drift := int(float64(ttl)*r.driftFactor) + 2
 		costTime := time.Since(start).Nanoseconds()
@@ -220,7 +231,7 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				unlockInstance(ctx, cli, resource, val) // nolint:errcheck
+				unlockInstance(cctx, cli, resource, val) // nolint:errcheck
 			}()
 		}
 		wg.Wait()
@@ -229,7 +240,7 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 		time.Sleep(time.Duration(rand.Intn(r.retryDelay)) * time.Millisecond)
 	}
 
-	return 0, errors.New("failed to require lock")
+	return 0, ErrAcquireLock
 }
 
 // UnLock releases an acquired lock
