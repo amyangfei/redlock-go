@@ -1,6 +1,7 @@
 package redlock
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -8,10 +9,11 @@ import (
 )
 
 func TestSimpleCache(t *testing.T) {
-	opts := map[string]interface{}{
-		OptDisableGC: true,
+	ctx := context.Background()
+	opts := &CacheOptions{
+		DisableGC: true,
 	}
-	cache := NewSimpleCache(opts)
+	cache := NewSimpleCache(ctx, opts)
 
 	var (
 		key               = "test_key"
@@ -53,9 +55,11 @@ func TestSimpleCache(t *testing.T) {
 	assert.Zero(t, cache.Size())
 
 	// test auto gc
-	opts[OptDisableGC] = false
-	opts[OptGCInterval] = "1s"
-	cache = NewSimpleCache(opts)
+	opts = &CacheOptions{
+		DisableGC:  false,
+		GCInterval: time.Second,
+	}
+	cache = NewSimpleCache(ctx, opts)
 	elem, err = cache.Set(key, val, shortExpiry)
 	assert.Nil(t, err)
 	assert.Equal(t, elem.Val, val)
@@ -73,8 +77,8 @@ func TestFreeCache(t *testing.T) {
 		err         error
 	)
 
-	opts := map[string]interface{}{
-		OptCacheSize: 1024 * 1024,
+	opts := &CacheOptions{
+		CacheSize: 1024 * 1024,
 	}
 	cache := NewFreeCache(opts)
 

@@ -117,7 +117,9 @@ func parseConnString(addr string) (*redis.Options, error) {
 }
 
 // NewRedLock creates a RedLock
-func NewRedLock(addrs []string) (*RedLock, error) {
+func NewRedLock(
+	ctx context.Context, addrs []string, opts ...CacheOption,
+) (*RedLock, error) {
 	if len(addrs)%2 == 0 {
 		return nil, fmt.Errorf("error redis server list: %d", len(addrs))
 	}
@@ -138,13 +140,8 @@ func NewRedLock(addrs []string) (*RedLock, error) {
 		driftFactor: ClockDriftFactor,
 		quorum:      len(addrs)/2 + 1,
 		clients:     clients,
-		cache:       NewCacheImpl(CacheTypeSimple, nil),
+		cache:       NewCacheImpl(ctx, opts...),
 	}, nil
-}
-
-// SetCache resets cache based on cache type
-func (r *RedLock) SetCache(cacheType string, opts map[string]interface{}) {
-	r.cache = NewCacheImpl(cacheType, opts)
 }
 
 // SetRetryCount sets acquire lock retry count

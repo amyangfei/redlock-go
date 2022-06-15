@@ -5,21 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/amyangfei/redlock-go/v2/redlock"
+	"github.com/amyangfei/redlock-go/v3/redlock"
 )
 
 func main() {
-	lock, err := redlock.NewRedLock([]string{
-		"tcp://127.0.0.1:6379",
-		"tcp://127.0.0.1:6380",
-		"tcp://127.0.0.1:6381",
-	})
+	ctx := context.Background()
+	lock, err := redlock.NewRedLock(
+		ctx, []string{
+			"tcp://127.0.0.1:6379",
+			"tcp://127.0.0.1:6380",
+			"tcp://127.0.0.1:6381",
+		})
 
 	if err != nil {
 		panic(err)
 	}
 
-	ctx := context.Background()
 	expiry, err := lock.Lock(ctx, "foo", 200*time.Millisecond)
 	if err != nil {
 		fmt.Println(err)

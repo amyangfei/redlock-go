@@ -23,7 +23,7 @@ var redisServers = []string{
 
 func TestBasicLock(t *testing.T) {
 	ctx := context.Background()
-	lock, err := NewRedLock(redisServers)
+	lock, err := NewRedLock(ctx, redisServers)
 	assert.Nil(t, err)
 
 	_, err = lock.Lock(ctx, "foo", 200*time.Millisecond)
@@ -34,7 +34,7 @@ func TestBasicLock(t *testing.T) {
 
 func TestUnlockExpiredKey(t *testing.T) {
 	ctx := context.Background()
-	lock, err := NewRedLock(redisServers)
+	lock, err := NewRedLock(ctx, redisServers)
 	assert.Nil(t, err)
 
 	_, err = lock.Lock(ctx, "foo", 50*time.Millisecond)
@@ -50,7 +50,7 @@ const (
 
 func writer(count int, back chan *countResp) {
 	ctx := context.Background()
-	lock, err := NewRedLock(redisServers)
+	lock, err := NewRedLock(ctx, redisServers)
 
 	if err != nil {
 		back <- &countResp{
@@ -159,6 +159,7 @@ func TestParseConnString(t *testing.T) {
 }
 
 func TestNewRedLockError(t *testing.T) {
+	ctx := context.Background()
 	testCases := []struct {
 		addrs   []string
 		success bool
@@ -168,7 +169,7 @@ func TestNewRedLockError(t *testing.T) {
 		{[]string{"tcp://127.0.0.1:6379", "tcp://127.0.0.1:6380", "tcp://127.0.0.1:6381"}, true},
 	}
 	for _, tc := range testCases {
-		_, err := NewRedLock(tc.addrs)
+		_, err := NewRedLock(ctx, tc.addrs)
 		if tc.success {
 			assert.Nil(t, err)
 		} else {
@@ -178,7 +179,8 @@ func TestNewRedLockError(t *testing.T) {
 }
 
 func TestRedlockSetter(t *testing.T) {
-	lock, err := NewRedLock(redisServers)
+	ctx := context.Background()
+	lock, err := NewRedLock(ctx, redisServers)
 	assert.Nil(t, err)
 
 	retryCount := lock.retryCount
@@ -219,7 +221,7 @@ func TestAcquireLockFailed(t *testing.T) {
 			time.Sleep(dur)
 		}(cli)
 	}
-	lock, err := NewRedLock(servers)
+	lock, err := NewRedLock(ctx, servers)
 	assert.Nil(t, err)
 
 	validity, err := lock.Lock(ctx, "foo", 100*time.Millisecond)
@@ -247,7 +249,7 @@ func TestLockContext(t *testing.T) {
 			time.Sleep(time.Second)
 		}(cli)
 	}
-	lock, err := NewRedLock(redisServers)
+	lock, err := NewRedLock(ctx, redisServers)
 	assert.Nil(t, err)
 
 	cancel()
@@ -263,9 +265,8 @@ func testKVCacheWrap(t *testing.T, cacheType string) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			lock, err := NewRedLock(redisServers)
+			lock, err := NewRedLock(ctx, redisServers, WithCacheType(cacheType))
 			assert.Nil(t, err)
-			lock.SetCache(cacheType, nil)
 			for j := 0; j < 100; j++ {
 				_, err = lock.Lock(ctx, "foo", 200*time.Millisecond)
 				assert.Nil(t, err)

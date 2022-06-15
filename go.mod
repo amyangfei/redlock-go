@@ -1,4 +1,4 @@
-module github.com/amyangfei/redlock-go/v2
+module github.com/amyangfei/redlock-go/v3
 
 go 1.15
 

@@ -16,12 +16,51 @@ const (
 	CacheTypeFreeCache = "freecache"
 )
 
-// kv cache options
-const (
-	OptDisableGC  = "opt-disable-gc"
-	OptGCInterval = "opt-gc-interval"
-	OptCacheSize  = "opt-cache-size"
-)
+// CacheOptions defines optional parameters for configuring kv cache.
+type CacheOptions struct {
+	CacheType  string
+	DisableGC  bool
+	GCInterval time.Duration
+	CacheSize  int
+}
+
+var defaultCacheOptions = &CacheOptions{
+	CacheType:  CacheTypeSimple,
+	DisableGC:  false,
+	GCInterval: time.Minute,
+	CacheSize:  10 * 1024 * 1024,
+}
+
+// CacheOption alias to the function that can be used to configure CacheOptions
+type CacheOption func(*CacheOptions)
+
+// WithCacheType sets CacheType to CacheOptions
+func WithCacheType(tp string) CacheOption {
+	return func(o *CacheOptions) {
+		o.CacheType = tp
+	}
+}
+
+// WithDisableGC sets DisableGC to CacheOptions
+func WithDisableGC(disabled bool) CacheOption {
+	return func(o *CacheOptions) {
+		o.DisableGC = disabled
+	}
+}
+
+// WithGCInterval sets GCInterval of CacheOptions
+func WithGCInterval(interval time.Duration) CacheOption {
+	return func(o *CacheOptions) {
+		o.GCInterval = interval
+	}
+}
+
+// WithCacheSize sets CacheSize of CacheOptions
+func WithCacheSize(size int) CacheOption {
+	return func(o *CacheOptions) {
+		o.CacheSize = size
+	}
+}
 
 // LockElem keeps a lock element
 type LockElem struct {
@@ -50,14 +89,19 @@ type KVCache interface {
 }
 
 // NewCacheImpl returns a KVCache implementation based on given cache type
-func NewCacheImpl(cacheType string, opts map[string]interface{}) KVCache {
-	switch cacheType {
+func NewCacheImpl(ctx context.Context, opts ...CacheOption) KVCache {
+	options := new(CacheOptions)
+	*options = *defaultCacheOptions
+	for _, opt := range opts {
+		opt(options)
+	}
+	switch options.CacheType {
 	case CacheTypeFreeCache:
-		return NewFreeCache(opts)
+		return NewFreeCache(options)
 	case CacheTypeSimple:
 		fallthrough
 	default:
-		return NewSimpleCache(opts)
+		return NewSimpleCache(ctx, options)
 	}
 }
 
@@ -68,24 +112,13 @@ type SimpleCache struct {
 }
 
 // NewSimpleCache creates a new SimpleCache object
-func NewSimpleCache(opts map[string]interface{}) *SimpleCache {
+func NewSimpleCache(ctx context.Context, options *CacheOptions) *SimpleCache {
 	c := &SimpleCache{
 		kvs: make(map[string]*LockElem),
 	}
-	gcInterval := time.Minute
-	disableAutoGC := false
-	if v, ok := opts[OptDisableGC].(bool); ok {
-		disableAutoGC = v
-	}
-	if !disableAutoGC {
-		if v, ok := opts[OptGCInterval].(string); ok {
-			dur, err := time.ParseDuration(v)
-			if err == nil {
-				gcInterval = dur
-			}
-		}
-		go func(ctx context.Context) {
-			ticker := time.NewTicker(gcInterval)
+	if !options.DisableGC {
+		go func() {
+			ticker := time.NewTicker(options.GCInterval)
 			defer ticker.Stop()
 			for {
 				select {
@@ -95,7 +128,7 @@ func NewSimpleCache(opts map[string]interface{}) *SimpleCache {
 					c.gc()
 				}
 			}
-		}(context.Background())
+		}()
 	}
 	return c
 }
@@ -154,13 +187,9 @@ type FreeCache struct {
 }
 
 // NewFreeCache returns a new FreeCache instance
-func NewFreeCache(opts map[string]interface{}) *FreeCache {
-	cacheSize := 10 * 1024 * 1024
-	if v, ok := opts[OptCacheSize].(int); ok {
-		cacheSize = v
-	}
+func NewFreeCache(options *CacheOptions) *FreeCache {
 	return &FreeCache{
-		c: freecache.NewCache(cacheSize),
+		c: freecache.NewCache(options.CacheSize),
 	}
 }
 

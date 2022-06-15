@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amyangfei/redlock-go/v2/redlock"
+	"github.com/amyangfei/redlock-go/v3/redlock"
 )
 
 const (
@@ -17,11 +17,13 @@ const (
 
 func writer(count int, back chan string) {
 	ctx := context.Background()
-	lock, err := redlock.NewRedLock([]string{
-		"tcp://127.0.0.1:6379",
-		"tcp://127.0.0.1:6380",
-		"tcp://127.0.0.1:6381",
-	})
+	lock, err := redlock.NewRedLock(
+		ctx,
+		[]string{
+			"tcp://127.0.0.1:6379",
+			"tcp://127.0.0.1:6380",
+			"tcp://127.0.0.1:6381",
+		})
 
 	if err != nil {
 		panic(err)

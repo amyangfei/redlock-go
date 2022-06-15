@@ -19,7 +19,7 @@ go mod init github.com/<user>/<repo>
 And then install this library via go get
 
 ```bash
-go get github.com/amyangfei/redlock-go/v2
+go get github.com/amyangfei/redlock-go/v3
 ```
 
 ## Usage
@@ -27,7 +27,9 @@ go get github.com/amyangfei/redlock-go/v2
 To create a lock manager:
 
 ```golang
-lockMgr, err := redlock.NewRedLock([]string{
+lockMgr, err := redlock.NewRedLock(
+    ctx,
+    []string{
         "tcp://127.0.0.1:6379",
         "tcp://127.0.0.1:6380",
         "tcp://127.0.0.1:6381",
@@ -37,7 +39,7 @@ lockMgr, err := redlock.NewRedLock([]string{
 To acquire a lock:
 
 ```golang
-import "github.com/amyangfei/redlock-go/v2/redlock"
+import "github.com/amyangfei/redlock-go/v3/redlock"
 
 ctx := context.Background()
 expirity, err := lockMgr.Lock(ctx, "resource_name", 200*time.Milliseconds)
@@ -51,7 +53,7 @@ otherwise an expirity larger than zero is returned representing the number of mi
 To release a lock:
 
 ```golang
-import "github.com/amyangfei/redlock-go/v2/redlock"
+import "github.com/amyangfei/redlock-go/v3/redlock"
 
 ctx := context.Background()
 err := lockMgr.UnLock(ctx, "resource_name")
@@ -66,32 +68,33 @@ A KV cache is used for local lock item query, currently this library provides tw
 #### map based cache
 
 ```golang
-import "github.com/amyangfei/redlock-go/v2/redlock"
+import "github.com/amyangfei/redlock-go/v3/redlock"
 
-lock, err := redlock.NewRedLock([]string{
+lock, err := redlock.NewRedLock(
+    ctx,
+    []string{
         "tcp://127.0.0.1:6379",
         "tcp://127.0.0.1:6380",
         "tcp://127.0.0.1:6381",
-})
-opts := map[string]interface{}{
-        redlock.OptDisableGC: false,
-        redlock.OptGCInterval: "1m",
-}
-lock.SetCache(redlock.CacheTypeSimple, opts)
+    },
+    WithCacheType(redlock.CacheTypeSimple),
+    WithCacheDisableGC(false),
+    WithGCInterval(time.Minute),
+)
 ```
 
 #### freecache based cache
 
 ```golang
-import "github.com/amyangfei/redlock-go/v2/redlock"
+import "github.com/amyangfei/redlock-go/v3/redlock"
 
-lock, err := redlock.NewRedLock([]string{
+lock, err := redlock.NewRedLock(
+    ctx,
+    []string{
         "tcp://127.0.0.1:6379",
         "tcp://127.0.0.1:6380",
         "tcp://127.0.0.1:6381",
-})
-opts := map[string]interface{}{
-        redlock.OptCacheSize: 10*1024*1024, // 10 Megabytes
-}
-lock.SetCache(redlock.CacheTypeFreeCache, opts)
+    },
+    WithCacheSize(10*1024*1024), // 10 Megabytes
+)
 ```
