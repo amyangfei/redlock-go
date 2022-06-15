@@ -23,7 +23,10 @@ func writer(count int, back chan string) {
 			"tcp://127.0.0.1:6379",
 			"tcp://127.0.0.1:6380",
 			"tcp://127.0.0.1:6381",
-		})
+		},
+		redlock.WithCacheType(redlock.CacheTypeFreeCache),
+		redlock.WithCacheSize(20*1024*1024),
+	)
 
 	if err != nil {
 		panic(err)

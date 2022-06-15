@@ -48,7 +48,7 @@ expirity, err := lockMgr.Lock(ctx, "resource_name", 200*time.Milliseconds)
 Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
 
 The err is not `nil` if the lock was not acquired (you may try again),
-otherwise an expirity larger than zero is returned representing the number of milliseconds the lock will be valid.
+otherwise an expirity(which is a time.Duration) larger than zero is returned representing the remaining time that lock will be valid.
 
 To release a lock:
 
@@ -77,9 +77,9 @@ lock, err := redlock.NewRedLock(
         "tcp://127.0.0.1:6380",
         "tcp://127.0.0.1:6381",
     },
-    WithCacheType(redlock.CacheTypeSimple),
-    WithCacheDisableGC(false),
-    WithGCInterval(time.Minute),
+    redlock.WithCacheType(redlock.CacheTypeSimple),
+    redlock.WithCacheDisableGC(false),
+    redlock.WithGCInterval(time.Minute),
 )
 ```
 
@@ -95,6 +95,7 @@ lock, err := redlock.NewRedLock(
         "tcp://127.0.0.1:6380",
         "tcp://127.0.0.1:6381",
     },
-    WithCacheSize(10*1024*1024), // 10 Megabytes
+    redlock.WithCacheType(redlock.CacheTypeFreeCache),
+    redlock.WithCacheSize(10*1024*1024), // 10 Megabytes
 )
 ```

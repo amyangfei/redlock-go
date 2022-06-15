@@ -185,8 +185,10 @@ func unlockInstance(ctx context.Context, client *RedClient, resource string, val
 	return true, nil
 }
 
-// Lock acquires a distribute lock
-func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) (int64, error) {
+// Lock acquires a distribute lock, returns
+// - the remaining valid duration that lock is guaranted
+// - error if acquire lock fails
+func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) (time.Duration, error) {
 	val := getRandStr()
 	for i := 0; i < r.retryCount; i++ {
 		start := time.Now()
@@ -220,7 +222,7 @@ func (r *RedLock) Lock(ctx context.Context, resource string, ttl time.Duration) 
 		validityTime := int64(ttl) - costTime - int64(drift)
 		if int(success) >= r.quorum && validityTime > 0 {
 			r.cache.Set(resource, val, validityTime)
-			return validityTime, nil
+			return time.Duration(validityTime), nil
 		}
 		cctx, cancel = context.WithTimeout(ctx, ttl)
 		for _, cli := range r.clients {

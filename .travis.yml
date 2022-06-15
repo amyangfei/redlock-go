@@ -7,7 +7,7 @@ go:
     - "1.18"
 
 before_install:
-    - go get github.com/mattn/goveralls
+    - go install github.com/mattn/goveralls@latest
 
 before_script:
     - mkdir -p /tmp/redis6379 /tmp/redis6380 /tmp/redis6381

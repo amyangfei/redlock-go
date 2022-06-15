@@ -225,7 +225,7 @@ func TestAcquireLockFailed(t *testing.T) {
 	assert.Nil(t, err)
 
 	validity, err := lock.Lock(ctx, "foo", 100*time.Millisecond)
-	assert.Equal(t, int64(0), validity)
+	assert.Equal(t, time.Duration(0), validity)
 	assert.NotNil(t, err)
 
 	wg.Wait()
