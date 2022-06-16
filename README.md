@@ -45,7 +45,7 @@ ctx := context.Background()
 expirity, err := lockMgr.Lock(ctx, "resource_name", 200*time.Milliseconds)
 ```
 
-Where the resource name is an unique identifier of what you are trying to lock and 200 is the number of milliseconds for the validity time.
+Where the resource name is an unique identifier of what you are trying to lock and 200ms the validity time for lock.
 
 The err is not `nil` if the lock was not acquired (you may try again),
 otherwise an expirity(which is a time.Duration) larger than zero is returned representing the remaining time that lock will be valid.
