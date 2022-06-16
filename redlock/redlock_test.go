@@ -258,14 +258,14 @@ func TestLockContext(t *testing.T) {
 	wg.Wait()
 }
 
-func testKVCacheWrap(t *testing.T, cacheType string) {
+func testKVCacheWrap(t *testing.T, opts ...CacheOption) {
 	ctx := context.Background()
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			lock, err := NewRedLock(ctx, redisServers, WithCacheType(cacheType))
+			lock, err := NewRedLock(ctx, redisServers, opts...)
 			assert.Nil(t, err)
 			for j := 0; j < 100; j++ {
 				_, err = lock.Lock(ctx, "foo", 200*time.Millisecond)
@@ -280,6 +280,13 @@ func testKVCacheWrap(t *testing.T, cacheType string) {
 }
 
 func TestKVCache(t *testing.T) {
-	testKVCacheWrap(t, CacheTypeSimple)
-	testKVCacheWrap(t, CacheTypeFreeCache)
+	testKVCacheWrap(t,
+		WithCacheType(CacheTypeSimple),
+		WithDisableGC(false),
+		WithGCInterval(10*time.Second),
+	)
+	testKVCacheWrap(t,
+		WithCacheType(CacheTypeFreeCache),
+		WithCacheSize(50*1024*1024),
+	)
 }
